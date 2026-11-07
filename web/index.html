@@ -1,0 +1,255 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<link rel="icon" href="data:,">
+<title>evergo 控制台</title>
+<style>
+:root{
+  --bg:#0b0f14;--card:#151d27;--line:#26303c;--txt:#e8eef6;--dim:#8ea1b6;
+  --green:#2ee6a8;--red:#ff5c6c;--orange:#ffa03c;--blue:#4aa8ff;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  min-height:100vh;padding:18px 16px 34px;
+  background:var(--bg);color:var(--txt);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+main{max-width:520px;margin:0 auto}
+header{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+h1{font-size:17px;font-weight:650;margin:0;letter-spacing:.4px}
+.pill{
+  margin-left:auto;display:inline-flex;align-items:center;gap:7px;
+  font-size:12px;color:var(--dim);background:var(--card);
+  border:1px solid var(--line);border-radius:999px;padding:5px 11px;
+}
+.pill i{width:8px;height:8px;border-radius:50%;background:#5a6b7d}
+.pill.on i{background:var(--green);box-shadow:0 0 8px var(--green)}
+.pill.busy i{background:var(--blue);box-shadow:0 0 8px var(--blue)}
+.pill.off i{background:var(--red)}
+#sub{color:var(--dim);font-size:12px;margin:0 0 16px;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+button{
+  appearance:none;cursor:pointer;color:var(--txt);background:var(--card);
+  border:1px solid var(--line);border-radius:14px;
+  font:inherit;font-weight:650;padding:15px 10px;text-align:center;
+  transition:transform .1s,border-color .15s,opacity .15s;
+}
+button small{display:block;font-weight:400;font-size:11px;color:var(--dim);margin-top:3px}
+button:hover:not(:disabled){border-color:#3a4a5e}
+button:active:not(:disabled){transform:scale(.97)}
+button:disabled{opacity:.4;cursor:default}
+.on-c{color:var(--green)}
+.off-c{color:var(--red)}
+.reboot-c{color:var(--orange)}
+.fb-c{color:var(--blue)}
+details{
+  margin-top:12px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:0 13px;
+}
+summary{
+  cursor:pointer;list-style:none;padding:12px 0;font-size:13px;color:var(--dim);
+  display:flex;justify-content:space-between;align-items:center;
+}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"展开";font-size:11px}
+details[open] summary::after{content:"收起"}
+.row{display:flex;align-items:center;gap:10px;margin:10px 0}
+.row label{flex:none;width:88px;font-size:12.5px;color:var(--dim)}
+.row output{flex:none;width:62px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}
+input[type=range]{flex:1;min-width:0;accent-color:#2ee6a8}
+.chk{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:12.5px;color:var(--dim)}
+.chk input{width:16px;height:16px;accent-color:#2ee6a8}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 14px}
+.mini button{padding:10px;font-size:13px;border-radius:10px}
+pre#log{
+  margin:0 0 13px;height:140px;overflow:auto;padding:11px;
+  background:#080c11;border:1px solid var(--line);border-radius:10px;
+  color:#9fd8c4;font-size:11.5px;line-height:1.6;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  white-space:pre-wrap;word-break:break-all;
+}
+pre#log b{color:var(--red);font-weight:600}
+footer{margin-top:16px;text-align:center;font-size:11px;color:#5b6b7d}
+.toast{
+  position:fixed;left:50%;bottom:24px;z-index:9;
+  transform:translate(-50%,16px);opacity:0;pointer-events:none;
+  background:#101a24;border:1px solid var(--line);border-radius:10px;
+  padding:10px 18px;font-size:13.5px;box-shadow:0 8px 24px rgba(0,0,0,.45);
+  transition:opacity .2s,transform .2s;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:380px){.row label{width:74px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>evergo</h1>
+    <span class="pill" id="pill"><i></i><span id="pillTxt">连接中</span></span>
+  </header>
+  <p id="sub">正在读取状态…</p>
+
+  <div class="grid">
+    <button class="on-c" data-act="on">开机<small>短按电源</small></button>
+    <button class="reboot-c" data-act="reboot" data-confirm="重启手机？">重启<small>关机后开机</small></button>
+    <button class="off-c" data-act="off" data-confirm="强制关机（按住 10 秒）？">关机<small>按住 10 秒</small></button>
+    <button class="fb-c" data-act="fastboot" data-confirm="进入 fastboot？">fastboot<small>电源 + 音量减</small></button>
+  </div>
+
+  <div class="grid">
+    <button data-act="voldown">音量 −<small class="vw-lbl">按住 300 ms</small></button>
+    <button data-act="volup">音量 +<small class="vw-lbl">按住 300 ms</small></button>
+  </div>
+
+  <details>
+    <summary>高级</summary>
+    <div class="row"><label>电源时长</label><input type="range" id="pw" data-out="pwOut" min="100" max="3000" step="100" value="800"><output id="pwOut"></output></div>
+    <div class="row"><label>音量时长</label><input type="range" id="vw" data-out="vwOut" min="100" max="3000" step="100" value="300"><output id="vwOut"></output></div>
+    <div class="mini">
+      <button data-act="power">按电源</button>
+      <button data-act="voldown">按音量 −</button>
+    </div>
+    <div class="row"><label>fb 电源</label><input type="range" id="fbPw" data-out="fbPwOut" min="1000" max="8000" step="250" value="4000"><output id="fbPwOut"></output></div>
+    <div class="row"><label>fb 音量减</label><input type="range" id="fbHold" data-out="fbHoldOut" min="200" max="4000" step="100" value="1000"><output id="fbHoldOut"></output></div>
+    <div class="chk"><input type="checkbox" id="fbOff" checked><label for="fbOff">先强制关机再进入 fastboot</label></div>
+    <div class="mini"><button data-act="fastboot" data-confirm="进入 fastboot？">执行 fastboot</button><button data-act="status">刷新状态</button></div>
+  </details>
+
+  <details>
+    <summary>日志</summary>
+    <pre id="log"></pre>
+  </details>
+
+  <footer>ESP32-S3 · 设备与手机需在同一 WiFi</footer>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const logEl = $('#log');
+
+function log(msg, bad) {
+  const t = new Date().toLocaleTimeString('zh-CN', {hour12: false});
+  logEl.innerHTML = `<span style="opacity:.55">${t}</span> ${bad ? '<b>' + msg + '</b>' : msg}\n` + logEl.innerHTML;
+  if (logEl.childElementCount > 60) logEl.removeChild(logEl.lastChild);
+}
+
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 1500);
+}
+
+let busy = false;
+function setBusy(b) {
+  if (b === busy) return;
+  busy = b;
+  document.querySelectorAll('button').forEach(el => el.disabled = b);
+}
+
+const DUR = () => ({
+  pw: +$('#pw').value,
+  vw: +$('#vw').value,
+  fbPw: +$('#fbPw').value,
+  fbHold: +$('#fbHold').value,
+  off: $('#fbOff').checked ? 1 : 0,
+});
+
+async function request(url, label) {
+  try {
+    const r = await fetch(url, {cache: 'no-store'});
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok) {
+      log(label + ' ✕ ' + (j.error || r.status), true);
+      toast(j.error === 'action_in_progress' ? '上一个操作还没完成' : '请求失败');
+      return;
+    }
+    log(label + ' ✓');
+    toast(label + ' 已发送');
+    setBusy(true);
+  } catch (e) {
+    log(label + ' ✕ ' + e.message, true);
+    toast('连接失败');
+  }
+}
+
+function actionUrl(act) {
+  const d = DUR();
+  switch (act) {
+    case 'power':    return ['/power?ms=' + d.pw, '按电源 ' + d.pw + 'ms'];
+    case 'voldown':  return ['/voldown?ms=' + d.vw, '音量减 ' + d.vw + 'ms'];
+    case 'volup':    return ['/volup?ms=' + d.vw, '音量加 ' + d.vw + 'ms'];
+    case 'fastboot': return ['/fastboot?power=' + d.fbPw + '&hold=' + d.fbHold + '&off=' + d.off,
+                             'fastboot ' + d.fbPw + '/' + d.fbHold + 'ms'];
+    case 'on':       return ['/on', '开机'];
+    case 'off':      return ['/off', '强制关机'];
+    case 'reboot':   return ['/reboot', '重启'];
+    default:         return ['/' + act, act];
+  }
+}
+document.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn || btn.disabled) return;
+  if (btn.dataset.confirm && !confirm(btn.dataset.confirm)) return;
+  if (btn.dataset.act === 'status') {
+    fetchStatus().then(busyNow => { if (busyNow !== null) toast('状态已刷新'); });
+    return;
+  }
+  const [url, label] = actionUrl(btn.dataset.act);
+  request(url, label);
+});
+
+document.querySelectorAll('input[data-out]').forEach(input => {
+  const out = $('#' + input.dataset.out);
+  const sync = () => {
+    out.value = input.value + ' ms';
+    if (input.id === 'vw') {
+      document.querySelectorAll('.vw-lbl').forEach(el => el.textContent = '按住 ' + input.value + ' ms');
+    }
+  };
+  input.addEventListener('input', sync);
+  sync();
+});
+
+function fmtUptime(s) {
+  if (s < 60) return s + ' 秒';
+  if (s < 3600) return Math.floor(s / 60) + ' 分 ' + (s % 60) + ' 秒';
+  return Math.floor(s / 3600) + ' 时 ' + Math.floor((s % 3600) / 60) + ' 分';
+}
+
+async function fetchStatus() {
+  try {
+    const j = await (await fetch('/status', {cache: 'no-store'})).json();
+    $('#pill').className = 'pill ' + (j.busy ? 'busy' : 'on');
+    $('#pillTxt').textContent = j.busy ? '执行中' : '在线';
+    $('#sub').textContent = (j.ssid || '未连接') + ' · ' + j.ip +
+      ' · 已运行 ' + fmtUptime(j.uptime_s);
+    setBusy(!!j.busy);
+    return !!j.busy;
+  } catch (e) {
+    $('#pill').className = 'pill off';
+    $('#pillTxt').textContent = '离线';
+    $('#sub').textContent = '无法连接，请确认设备与手机在同一 WiFi';
+    setBusy(false);
+    return null;
+  }
+}
+
+async function poll() {
+  const busyNow = await fetchStatus();
+  setTimeout(poll, busyNow === null ? 3000 : busyNow ? 1000 : 5000);
+}
+
+poll();
+log('控制台就绪');
+</script>
+</body>
+</html>

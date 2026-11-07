@@ -1,0 +1,19 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * Copyright (C) 2026 Evergo-Mainline
+ *
+ * WiFi credentials template.
+ *
+ * Copy this file to main/wifi_config.h and fill in your own 2.4 GHz network:
+ *
+ *     Copy-Item main\wifi_config.h.example main\wifi_config.h
+ *
+ * main/wifi_config.h is ignored by git, so real credentials never enter the
+ * repository. The ESP32-S3 is 2.4 GHz only - do not list 5 GHz-only SSIDs.
+ */
+#pragma once
+
+#define WIFI_SSID_PRIMARY   "your-wifi"
+#define WIFI_SSID_ALT1      "your-wifi-alt1"
+#define WIFI_SSID_ALT2      "your-wifi-alt2"
+#define WIFI_PASSWORD       "your-password"
